@@ -1,122 +1,147 @@
 import streamlit as st
+import requests
+from datetime import datetime
 
+# === Translate to Amharic (Optional with Fallback) ===
+def translate_to_amharic(text):
+    try:
+        if len(text) > 500:
+            text = text[:497] + "..."
+        response = requests.post(
+            "https://translate.argosopentech.com/translate",
+            json={
+                "q": text,
+                "source": "en",
+                "target": "am",
+                "format": "text"
+            },
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json().get('translatedText', "\u12e8\u12cc\u120a\u1295\u12cd \u121b\u1320\u12aa\u120b \u1218\u1270\u122d\u130e\u121d \u12a0\u120d\u1270\u127b\u120d\u121d\u1361")
+        else:
+            return "\u12e8\u12cc\u120a\u1295\u12cd \u121b\u1320\u12aa\u120b \u1218\u1270\u122d\u130e\u121d \u12a0\u120d\u1270\u127b\u120d\u121d\u1361"
+    except Exception:
+        return "\u12e8\u12cc\u120a\u1295\u12cd \u121b\u1320\u12aa\u120b \u1218\u1270\u122d\u130e\u121d \u12a0\u120d\u1270\u127b\u120d\u121d\u1361"
+
+# === Generate Patient-Friendly SMS ===
+def generate_patient_sms(diagnosis):
+    return (
+        "Dear patient, your visit today suggests an infection that requires treatment. "
+        "Please complete all medications as prescribed. Avoid sexual contact until your treatment is complete. "
+        "You may also encourage your partner to get checked. Stay safe and follow up if symptoms continue."
+    )
+
+# === Simulated SMS Sending ===
+def send_sms(phone, message):
+    st.success(f"📤 Patient SMS sent to {phone}: {message[:50]}...")
+
+# === Diagnosis Logic Based on WHO/CDC Syndromic Definitions ===
+def get_probable_diagnosis(symptoms_list):
+    symptoms_lower = [s.lower() for s in symptoms_list]
+
+    if "genital ulcer" in symptoms_lower:
+        return "Genital Ulcer Syndrome – Likely Syphilis or Herpes"
+    elif "urethral discharge" in symptoms_lower:
+        return "Urethral Discharge Syndrome – Likely Gonorrhea or Chlamydia"
+    elif "vaginal discharge" in symptoms_lower:
+        return "Vaginal Discharge Syndrome – Likely Bacterial Vaginosis or Trichomoniasis"
+    elif "lower abdominal pain" in symptoms_lower and "pain during sex" in symptoms_lower:
+        return "Pelvic Inflammatory Disease (PID)"
+    elif "anal symptoms" in symptoms_lower:
+        return "Proctitis – Suspect STI or HSV"
+    else:
+        return "Non-specific STI – Further Evaluation Needed"
+
+# === Page Setup ===
 st.set_page_config(page_title="Elomi STI Care", layout="centered")
 
+# === App Branding ===
+st.image("elomi_logo.png", width=160)
 st.title("🧬 Elomi STI Care – AI-Based Syndromic STI Diagnostic Pipeline")
-st.markdown("""
-This AI-powered clinical support system is developed by **Elomi Health Research and Training LLC**. It assists clinicians and health workers 
-in low-resource settings to identify likely **sexually transmitted infections (STIs)** based on syndromic inputs and patient risk factors.
 
+# === Intro Message ===
+st.markdown("""
+Welcome to **Elomi STI Care**, a digital tool designed to support clinicians in the syndromic diagnosis and management of sexually transmitted infections (STIs).
+
+This app helps:
+- 📝 Generate structured clinical summaries  
+- 💬 Provide patient-safe SMS guidance  
+- 🌍 Optionally translate summaries to Amharic  
+- 🔒 Keep communication clear, confidential, and evidence-based  
+
+Developed by **Elomi Health Research and Training LLC**
 """)
 
-# -----------------------------------
-# 📌 Patient Registration Details
-# -----------------------------------
-st.header("🗂️ Patient Registration")
-
-col1, col2 = st.columns(2)
-with col1:
-    patient_name = st.text_input("Patient Full Name")
-    patient_id = st.text_input("Patient ID")
+# === Patient Form ===
+with st.form("patient_form"):
+    st.subheader("👤 Patient Registration")
+    name = st.text_input("Full Name")
+    age = st.number_input("Age", min_value=1, max_value=120)
     gender = st.selectbox("Gender", ["Male", "Female", "Other"])
-    age = st.number_input("Age", min_value=0, max_value=120, step=1)
-with col2:
-    facility_name = st.text_input("Health Facility Name")
-    marital_status = st.selectbox("Marital Status", ["Single", "Married", "Divorced", "Widowed", "Other"])
-    occupation = st.selectbox(
-        "Occupation", 
-        ["FSW (Female Sex Worker)", "Truck Driver", "Government Worker", "Merchant", "Self-employed", "Student", "Unemployed", "Other"]
+    marital_status = st.selectbox("Marital Status", ["Single", "Married", "Divorced", "Widowed"])
+    occupation = st.selectbox("Occupation", [
+        "Student", "Farmer", "Daily Laborer", "Housewife",
+        "Government Worker", "Private Worker",
+        "Commercial Sex Worker", "Merchant", "Driver", "Unemployed", "Other"
+    ])
+    facility = st.text_input("Health Facility")
+    phone = st.text_input("Phone Number (e.g. +2519xxxxxxx)")
+
+    st.subheader("🩺 STI Symptoms")
+    symptoms_selected = st.multiselect("Select observed symptoms:", [
+        "Vaginal discharge",
+        "Urethral discharge",
+        "Genital ulcer",
+        "Lower abdominal pain",
+        "Pain during urination",
+        "Genital itching",
+        "Pain during sex",
+        "Anal symptoms"
+    ])
+    other_symptom = st.text_input("Other symptoms (if any)")
+    symptoms = "; ".join(symptoms_selected)
+    if other_symptom:
+        symptoms += f"; {other_symptom}"
+
+    submitted = st.form_submit_button("Submit and Diagnose")
+
+# === On Submit ===
+if submitted:
+    probable_diagnosis = get_probable_diagnosis(symptoms_selected)
+    urgency = "Urgent"
+
+    # Clinical summary
+    english_summary = (
+        f"{name} is a {age}-year-old {gender.lower()} who presented with: {symptoms}. "
+        f"Possible diagnosis: {probable_diagnosis}. Urgency level: {urgency}."
     )
 
-# -----------------------------------
-# ⚠️ STI Risk Factors
-# -----------------------------------
-st.subheader("⚠️ Risk Behaviors")
-risk_factors = st.multiselect(
-    "Select all that apply",
-    ["Unprotected sex", "Multiple sexual partners", "New sexual partner", 
-     "Substance use before sex", "Partner with STI", "HIV-positive", 
-     "Previous STI history", "Commercial sex work"]
-)
+    st.subheader("📝 English Clinical Summary (for clinician)")
+    st.write(english_summary)
 
-# -----------------------------------
-# 📝 Symptom Input
-# -----------------------------------
-st.subheader("📝 Symptom Description")
-symptom_mode = st.radio("Choose how to enter symptoms", ["Select from list", "Free text entry"])
+    # Optional Amharic summary
+    st.subheader("🌍 Amharic Summary (optional)")
+    amharic_summary = translate_to_amharic(english_summary)
+    st.write(amharic_summary)
 
-selected_symptoms = []
-free_text = ""
+    # SMS to patient
+    st.subheader("💬 Patient SMS Message (English)")
+    patient_sms = generate_patient_sms(probable_diagnosis)
+    st.write(patient_sms)
 
-if symptom_mode == "Select from list":
-    selected_symptoms = st.multiselect(
-        "Select symptoms observed or reported:",
-        ["Discharge", "Pelvic pain", "Genital ulcer", "Rash", "Fever", "Genital warts", 
-         "Itching", "Irritation", "Burning during urination", "Swollen lymph nodes", 
-         "Pain during sex", "Vaginal bleeding", "Scrotal swelling"]
-    )
-else:
-    free_text = st.text_area("Describe symptoms", placeholder="e.g., discharge, ulcers, fever, warts...")
+    if st.button("📤 Send Patient SMS"):
+        send_sms(phone, patient_sms)
 
-# -----------------------------------
-# 🔬 Diagnostic Logic
-# -----------------------------------
-def diagnose(symptoms):
-    s = " ".join(symptoms).lower() if isinstance(symptoms, list) else symptoms.lower()
-    result = {"probable": None, "possible": None}
-
-    if "discharge" in s and "pain" in s:
-        result["probable"] = "Gonorrhea"
-        result["possible"] = "Chlamydia"
-    elif "ulcer" in s or "sore" in s:
-        result["probable"] = "Syphilis"
-        result["possible"] = "Herpes"
-    elif "warts" in s:
-        result["probable"] = "HPV"
-        result["possible"] = "Molluscum contagiosum"
-    elif "fever" in s and "rash" in s:
-        result["probable"] = "Acute HIV"
-        result["possible"] = "Secondary Syphilis"
-    elif "itching" in s or "irritation" in s:
-        result["probable"] = "Trichomoniasis"
-        result["possible"] = "Candidiasis"
-    elif "burning" in s and "urination" in s:
-        result["probable"] = "Urethritis"
-        result["possible"] = "Cystitis"
-    else:
-        result["probable"] = "Undetermined"
-        result["possible"] = "Needs clinical evaluation"
-
-    return result
-
-# -----------------------------------
-# 🧠 Trigger Diagnosis
-# -----------------------------------
-if st.button("Run Diagnosis"):
-    if symptom_mode == "Free text entry" and free_text.strip() == "":
-        st.warning("Please enter symptoms.")
-    elif symptom_mode == "Select from list" and not selected_symptoms:
-        st.warning("Please select at least one symptom.")
-    else:
-        symptoms_input = free_text if symptom_mode == "Free text entry" else selected_symptoms
-        diagnosis = diagnose(symptoms_input)
-
-        st.success(f"✅ Probable Diagnosis: **{diagnosis['probable']}**")
-        st.info(f"ℹ️ Possible Alternative: **{diagnosis['possible']}**")
-
-        st.subheader("📌 Clinical Recommendations")
-        if diagnosis["probable"] == "Undetermined":
-            st.warning("Refer to clinician for comprehensive STI evaluation.")
-        else:
-            st.markdown("""
-            - Consider **empirical treatment** as per national guidelines.
-            - Offer **partner treatment and counseling**.
-            - Provide **HIV testing**, hepatitis B vaccination, and condom education.
-            - Schedule **follow-up or referral** to appropriate STI/HIV clinic.
-            """)
-
-# -----------------------------------
-# Footer
-# -----------------------------------
+# === Footer: STI Advice ===
 st.markdown("---")
-st.caption("Developed by Elomi Health Research and Training LLC | AI STI Diagnostic Assistant | Version 1.1 | © 2025")
+st.markdown("### 📢 STI Prevention & Follow-Up Advice")
+st.markdown("""
+- Always complete your medications.
+- Avoid sex until treatment is finished.
+- Use condoms regularly.
+- Encourage your partner(s) to get tested.
+- Follow up if symptoms continue.
+
+🧠 *This app assists clinicians in structured note generation, patient guidance, and STI care continuity.*
+""")
