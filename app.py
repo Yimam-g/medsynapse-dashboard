@@ -1,124 +1,136 @@
 import streamlit as st
 from datetime import datetime
+import openai
+import os
 
-# === Page Config ===
-st.set_page_config(
-    page_title="Elomi Care – Syndromic Infection Diagnosis",
-    page_icon="🧬",
-    layout="wide"
-)
+# === SETUP ===
+st.set_page_config(page_title="Elomi AI Diagnostic App", page_icon="🧬", layout="wide")
+
+# Optional: Set your OpenAI API Key
+openai.api_key = os.getenv("OPENAI_API_KEY", "sk-...")  # Replace with your actual key or use env variable
+
+def gpt_diagnosis(symptoms):
+    prompt = f"""
+    Patient reports the following symptoms: {symptoms}
+    Based on WHO guidelines and global syndromic diagnosis, suggest the most likely infection (STI, Febrile illness, or TB), probable co-infections, and recommended initial management.
+    """
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ GPT Error: {str(e)}"
+
+# === AI Rule-Based Scoring ===
+def ai_score(symptom_dict):
+    score = 0
+    weights = {
+        "urethral_discharge": 3,
+        "genital_ulcer": 4,
+        "fever": 2,
+        "night_sweats": 3,
+        "weight_loss": 3,
+        "chronic_cough": 4,
+        "headache": 1,
+        "jaundice": 2,
+        "diarrhea": 1,
+        "vaginal_discharge": 2
+    }
+    for symptom, present in symptom_dict.items():
+        if present:
+            score += weights.get(symptom, 0)
+    return score
 
 # === Sidebar Navigation ===
-page = st.sidebar.radio("📁 Navigation", [
-    "STI Diagnosis",
-    "Febrile Illness Tool",
-    "TB Screening",
-    "Model Summary",
-    "Patient Demographics",
-    "Treatment & SMS"
-])
+section = st.sidebar.radio("📁 Navigation", ["🏠 Home", "🧬 STI Diagnosis", "🌡️ Febrile Illness", "🫁 Tuberculosis", "💬 SMS Generator"])
 
-# === App Branding ===
+# === WHO-Based Header ===
 st.image("elomi_logo.png", width=140)
-st.title("🧬 Elomi Care – Syndromic Infection Diagnosis Suite")
-st.markdown("Developed by **Elomi Health Research and Training LLC**")
+st.title("🧠 Elomi AI Diagnostic Platform")
 
-# === STI Diagnosis Page ===
-if page == "STI Diagnosis":
-    st.subheader("🔍 STI Diagnosis")
-    st.markdown("Enter patient symptoms and risk factors to get a probable STI diagnosis.")
+# === Common Symptoms Form ===
+def collect_symptoms():
+    st.subheader("📝 Symptom Input")
+    st.markdown("_Select observed symptoms for AI scoring and GPT triage_ ✅")
+    return {
+        "urethral_discharge": st.checkbox("Urethral Discharge"),
+        "vaginal_discharge": st.checkbox("Vaginal Discharge"),
+        "genital_ulcer": st.checkbox("Genital Ulcer"),
+        "fever": st.checkbox("Fever"),
+        "headache": st.checkbox("Headache"),
+        "night_sweats": st.checkbox("Night Sweats"),
+        "weight_loss": st.checkbox("Weight Loss"),
+        "chronic_cough": st.checkbox("Cough >2 Weeks"),
+        "jaundice": st.checkbox("Jaundice"),
+        "diarrhea": st.checkbox("Diarrhea")
+    }
 
-    name = st.text_input("Name")
-    age = st.number_input("Age", min_value=0, max_value=120)
-    gender = st.selectbox("Gender", ["Male", "Female", "Other"])
-    marital_status = st.selectbox("Marital Status", ["Single", "Married", "Divorced", "Widowed"])
-    symptoms = st.multiselect("Symptoms", [
-        "Urethral discharge", "Genital ulcer", "Vaginal discharge", "Pelvic pain",
-        "Lower abdominal pain", "Dysuria", "Pain during intercourse", "Anal discharge",
-        "Genital warts", "Swollen lymph nodes", "Rash", "Fever", "Joint pain"
-    ])
-    duration = st.selectbox("Duration of symptoms", ["<1 week", "1–2 weeks", ">2 weeks"])
-    risk_factors = st.multiselect("Risk factors", [
-        "Multiple sexual partners", "Unprotected sex", "New sexual partner",
-        "Previous STI", "Sex work", "Partner with STI", "HIV positive"
-    ])
+# === Diagnosis Output Section ===
+def show_diagnosis(name, symptom_dict):
+    score = ai_score(symptom_dict)
+    symptoms_text = ", ".join([k.replace("_", " ") for k, v in symptom_dict.items() if v])
 
-    if st.button("Get STI Diagnosis"):
-        if "Genital ulcer" in symptoms or "Genital warts" in symptoms:
-            probable = "Herpes or HPV"
-            possible = "Syphilis"
-        elif "Urethral discharge" in symptoms or "Vaginal discharge" in symptoms:
-            probable = "Gonorrhea"
-            possible = "Chlamydia or Trichomoniasis"
-        else:
-            probable = "Non-specific STI"
-            possible = "Further testing recommended"
+    st.success(f"📊 AI Score for {name}: **{score}/25**")
+    st.info("🤖 GPT Interpretation:")
+    st.markdown(gpt_diagnosis(symptoms_text))
 
-        st.success(f"**Probable Diagnosis:** {probable}")
-        st.info(f"**Possible Diagnosis:** {possible}")
-        st.markdown("🩺 **Recommendation:** Refer to health facility for confirmation and syndromic treatment.")
-        st.caption("⚠️ This is not a substitute for professional medical advice.")
+    if score > 8:
+        st.warning("⚠️ Possible severe infection or co-infection. Recommend urgent referral.")
+    elif score > 4:
+        st.success("👍 Moderate concern. Consider syndromic treatment based on findings.")
+    else:
+        st.info("✔️ Low-risk symptoms. Monitor or provide preventive advice.")
 
-# === Febrile Illness Tool Page ===
-elif page == "Febrile Illness Tool":
-    st.subheader("🌡️ Febrile Illness Triage Tool")
-    st.markdown("Use this tool to assess febrile illnesses (Malaria, Typhoid, Dengue, etc.)")
+# === Prevention + Treatment Advice ===
+def clinical_guidance():
+    st.subheader("📘 WHO-Based Case Definition & Management")
+    st.markdown("""
+    - **STI (Discharge)**: Treat with Azithromycin + Cefixime. Avoid unprotected sex.
+    - **Febrile Illness (e.g. Malaria, Dengue, Typhoid)**: Rule out based on region & exposure. Use RDTs.
+    - **TB Suspect**: Sputum microscopy / GeneXpert, consider referral for DOTS.
+    """)
+    st.link_button("📄 WHO STI Guidelines", "https://www.who.int/publications/i/item/9789240057416")
 
-    fever = st.checkbox("Fever >38°C")
-    chills = st.checkbox("Chills or rigors")
-    joint_pain = st.checkbox("Joint or muscle pain")
-    headache = st.checkbox("Severe headache")
-    rash = st.checkbox("Skin rash")
-    travel = st.checkbox("Recent travel to endemic area")
-    vomiting = st.checkbox("Vomiting or diarrhea")
-    bleeding = st.checkbox("Bleeding or bruising")
-    duration_fever = st.selectbox("Duration of fever", ["<3 days", "3–7 days", ">7 days"])
+# === SMS Generator ===
+def sms_form():
+    st.subheader("📤 Generate SMS to patient")
+    name = st.text_input("Patient Name")
+    result = st.text_area("Diagnosis Summary")
+    st.markdown(f"""
+    **📨 SMS Message:**
 
-    if st.button("Evaluate Febrile Illness"):
-        if fever and chills and travel and headache:
-            probable = "Malaria"
-        elif fever and rash and joint_pain:
-            probable = "Dengue or Chikungunya"
-        elif fever and vomiting and diarrhea:
-            probable = "Typhoid Fever"
-        else:
-            probable = "Non-specific febrile illness"
+    Hello {name}, your recent health check suggests: _{result}_. Please follow the recommended treatment and visit your clinic if symptoms worsen. – Elomi Health Team
+    """)
+    st.caption("✔️ You can copy this and send via your clinic SMS system.")
 
-        st.success(f"**Probable Cause:** {probable}")
-        st.markdown("🩺 **Next Step:** Clinical confirmation and lab investigation required.")
+# === Main Section Routing ===
+if section == "🏠 Home":
+    st.markdown("Welcome to the **Elomi AI Diagnostic App** – supporting clinicians and patients with decision-making tools for common infections in Africa.")
+    st.markdown("Use the sidebar to begin diagnosis or generate SMS.")
 
-# === TB Screening Page ===
-elif page == "TB Screening":
-    st.subheader("🫁 Tuberculosis Screening Tool")
-    st.markdown("WHO-recommended symptom-based TB screening.")
+elif section == "🧬 STI Diagnosis":
+    st.header("🧬 STI Syndromic Diagnosis")
+    symptoms = collect_symptoms()
+    if st.button("🔍 Diagnose STI"):
+        show_diagnosis("STI", symptoms)
+        clinical_guidance()
 
-    cough = st.checkbox("Persistent cough >2 weeks")
-    weight_loss = st.checkbox("Unintentional weight loss")
-    night_sweats = st.checkbox("Night sweats")
-    fever_tb = st.checkbox("Fever")
-    contact_tb = st.checkbox("Close contact with TB case")
+elif section == "🌡️ Febrile Illness":
+    st.header("🌡️ Febrile Illness Diagnosis")
+    symptoms = collect_symptoms()
+    if st.button("🧪 Diagnose Febrile Illness"):
+        show_diagnosis("Febrile Illness", symptoms)
+        clinical_guidance()
 
-    if st.button("Screen for TB"):
-        symptom_score = sum([cough, weight_loss, night_sweats, fever_tb, contact_tb])
-        if symptom_score >= 3 or (cough and weight_loss):
-            st.warning("⚠️ **High suspicion of TB** – Refer for sputum test, X-ray, or GeneXpert.")
-        elif symptom_score >= 1:
-            st.info("🩺 **Possible TB symptoms present** – Monitor and reassess if symptoms persist.")
-        else:
-            st.success("✅ Low suspicion of TB – No immediate action required.")
+elif section == "🫁 Tuberculosis":
+    st.header("🫁 Tuberculosis Screening")
+    symptoms = collect_symptoms()
+    if st.button("📋 Assess TB Risk"):
+        show_diagnosis("Tuberculosis", symptoms)
+        clinical_guidance()
 
-# === Model Summary Page ===
-elif page == "Model Summary":
-    st.subheader("🧠 Model Summary")
-    st.markdown("This page will summarize the logic and accuracy of the syndromic models used.")
-
-# === Patient Demographics Page ===
-elif page == "Patient Demographics":
-    st.subheader("👥 Patient Demographics")
-    st.markdown("View or analyze anonymized demographic trends (future implementation).")
-
-# === Treatment and SMS Page ===
-elif page == "Treatment & SMS":
-    st.subheader("💊 Treatment Recommendation & SMS Generator")
-    st.markdown("Auto-generate treatment and SMS for referral or partner notification (future implementation).")
+elif section == "💬 SMS Generator":
+    sms_form()
 
