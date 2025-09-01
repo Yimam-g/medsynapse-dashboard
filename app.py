@@ -3,119 +3,122 @@ from datetime import datetime
 
 # === Page Config ===
 st.set_page_config(
-    page_title="Elomi STI Care",
+    page_title="Elomi Care – Syndromic Infection Diagnosis",
     page_icon="🧬",
     layout="wide"
 )
 
-# Initialize session state
-if 'diagnosis_summary' not in st.session_state:
-    st.session_state['diagnosis_summary'] = ""
-if 'confidence_score' not in st.session_state:
-    st.session_state['confidence_score'] = 0
-if 'treatment_plan' not in st.session_state:
-    st.session_state['treatment_plan'] = ""
-if 'sms_text' not in st.session_state:
-    st.session_state['sms_text'] = ""
-
 # === Sidebar Navigation ===
-page = st.sidebar.radio("📁 Navigation", ["Patient Demographics", "Diagnosis", "Treatment & SMS", "Model Summary"])
+page = st.sidebar.radio("📁 Navigation", [
+    "STI Diagnosis",
+    "Febrile Illness Tool",
+    "TB Screening",
+    "Model Summary",
+    "Patient Demographics",
+    "Treatment & SMS"
+])
 
-# === Intro Header ===
+# === App Branding ===
 st.image("elomi_logo.png", width=140)
-st.title("🧬 Elomi STI Care – AI-Based Syndromic STI Diagnostic Pipeline")
+st.title("🧬 Elomi Care – Syndromic Infection Diagnosis Suite")
+st.markdown("Developed by **Elomi Health Research and Training LLC**")
 
-# === Patient Demographics ===
-if page == "Patient Demographics":
-    st.header("Patient Registration")
-    name = st.text_input("Full Name")
-    patient_id = st.text_input("Patient ID")
+# === STI Diagnosis Page ===
+if page == "STI Diagnosis":
+    st.subheader("🔍 STI Diagnosis")
+    st.markdown("Enter patient symptoms and risk factors to get a probable STI diagnosis.")
+
+    name = st.text_input("Name")
     age = st.number_input("Age", min_value=0, max_value=120)
     gender = st.selectbox("Gender", ["Male", "Female", "Other"])
     marital_status = st.selectbox("Marital Status", ["Single", "Married", "Divorced", "Widowed"])
-    phone = st.text_input("Phone Number (e.g. +2519xxxxxxx)")
-
-# === Diagnosis Page ===
-elif page == "Diagnosis":
-    st.markdown("""
-    Welcome to **Elomi STI Care**, a digital assistant to help clinicians with syndromic STI diagnosis based on WHO guidance.
-
-    This app helps you:
-    - Generate structured clinical summaries
-    - Provide patient-safe SMS guidance
-    - Optionally translate summaries to Amharic
-    - Keep communication clear, confidential, and evidence-based
-
-    Developed by **Elomi Health Research and Training LLC**
-    """)
-
-    st.header("Symptom Input")
-    symptoms = st.multiselect("Select symptoms", [
-        "Vaginal discharge", "Urethral discharge", "Genital ulcer",
-        "Lower abdominal pain", "Pain during urination", "Genital itching",
-        "Pain during sex", "Anal symptoms"
+    symptoms = st.multiselect("Symptoms", [
+        "Urethral discharge", "Genital ulcer", "Vaginal discharge", "Pelvic pain",
+        "Lower abdominal pain", "Dysuria", "Pain during intercourse", "Anal discharge",
+        "Genital warts", "Swollen lymph nodes", "Rash", "Fever", "Joint pain"
+    ])
+    duration = st.selectbox("Duration of symptoms", ["<1 week", "1–2 weeks", ">2 weeks"])
+    risk_factors = st.multiselect("Risk factors", [
+        "Multiple sexual partners", "Unprotected sex", "New sexual partner",
+        "Previous STI", "Sex work", "Partner with STI", "HIV positive"
     ])
 
-    discharge_color = st.selectbox("Discharge color (if applicable)", [
-        "—", "Thick white (curd-like)", "Yellow or green (pus-like)", "Gray (with odor)",
-        "Bloody or brownish", "Clear or watery"
-    ])
+    if st.button("Get STI Diagnosis"):
+        if "Genital ulcer" in symptoms or "Genital warts" in symptoms:
+            probable = "Herpes or HPV"
+            possible = "Syphilis"
+        elif "Urethral discharge" in symptoms or "Vaginal discharge" in symptoms:
+            probable = "Gonorrhea"
+            possible = "Chlamydia or Trichomoniasis"
+        else:
+            probable = "Non-specific STI"
+            possible = "Further testing recommended"
 
-    duration = st.selectbox("Symptom duration", ["< 7 days", "7–14 days", "> 14 days"])
-    occupation = st.selectbox("Occupation", [
-        "General population", "Commercial Sex Worker", "Healthcare Worker",
-        "Student", "Farmer", "Other"
-    ])
+        st.success(f"**Probable Diagnosis:** {probable}")
+        st.info(f"**Possible Diagnosis:** {possible}")
+        st.markdown("🩺 **Recommendation:** Refer to health facility for confirmation and syndromic treatment.")
+        st.caption("⚠️ This is not a substitute for professional medical advice.")
 
-    if st.button("Submit"):
-        probable_diagnosis = "Gonorrhea or Chlamydia based on reported symptoms"
-        confidence_score = 82  # Placeholder confidence score
-        treatment = "Ceftriaxone 500 mg IM once + Azithromycin 1 g orally once"
-        sms = f"Dear patient, your diagnosis suggests: {probable_diagnosis}. Please complete your treatment: {treatment}. Avoid sexual contact until treatment is finished."
+# === Febrile Illness Tool Page ===
+elif page == "Febrile Illness Tool":
+    st.subheader("🌡️ Febrile Illness Triage Tool")
+    st.markdown("Use this tool to assess febrile illnesses (Malaria, Typhoid, Dengue, etc.)")
 
-        summary = f"Clinical Summary:\n- Symptoms: {', '.join(symptoms)}\n- Duration: {duration}\n- Discharge Appearance: {discharge_color}\n- Occupation: {occupation}\n- Probable Diagnosis: {probable_diagnosis}\n- Confidence: {confidence_score}%"
+    fever = st.checkbox("Fever >38°C")
+    chills = st.checkbox("Chills or rigors")
+    joint_pain = st.checkbox("Joint or muscle pain")
+    headache = st.checkbox("Severe headache")
+    rash = st.checkbox("Skin rash")
+    travel = st.checkbox("Recent travel to endemic area")
+    vomiting = st.checkbox("Vomiting or diarrhea")
+    bleeding = st.checkbox("Bleeding or bruising")
+    duration_fever = st.selectbox("Duration of fever", ["<3 days", "3–7 days", ">7 days"])
 
-        st.session_state['diagnosis_summary'] = summary
-        st.session_state['confidence_score'] = confidence_score
-        st.session_state['treatment_plan'] = treatment
-        st.session_state['sms_text'] = sms
+    if st.button("Evaluate Febrile Illness"):
+        if fever and chills and travel and headache:
+            probable = "Malaria"
+        elif fever and rash and joint_pain:
+            probable = "Dengue or Chikungunya"
+        elif fever and vomiting and diarrhea:
+            probable = "Typhoid Fever"
+        else:
+            probable = "Non-specific febrile illness"
 
-        st.success("Diagnosis generated. Please continue to the Treatment & SMS tab.")
+        st.success(f"**Probable Cause:** {probable}")
+        st.markdown("🩺 **Next Step:** Clinical confirmation and lab investigation required.")
 
-        st.subheader("Diagnosis Output")
-        st.text_area("Clinical Summary", value=summary, height=200)
+# === TB Screening Page ===
+elif page == "TB Screening":
+    st.subheader("🫁 Tuberculosis Screening Tool")
+    st.markdown("WHO-recommended symptom-based TB screening.")
 
-# === Treatment and SMS Page ===
-elif page == "Treatment & SMS":
-    st.header("Treatment Recommendation and Patient Communication")
+    cough = st.checkbox("Persistent cough >2 weeks")
+    weight_loss = st.checkbox("Unintentional weight loss")
+    night_sweats = st.checkbox("Night sweats")
+    fever_tb = st.checkbox("Fever")
+    contact_tb = st.checkbox("Close contact with TB case")
 
-    st.subheader("Clinical Diagnosis Summary")
-    st.text_area("Diagnosis", value=st.session_state.get('diagnosis_summary', "No diagnosis available yet. Please submit symptoms in the Diagnosis tab."), height=200)
-
-    st.subheader("Treatment Recommendation")
-    st.write(st.session_state.get('treatment_plan', "No recommendation available."))
-
-    st.subheader("Patient SMS Message")
-    sms_message = st.text_area("Generated SMS", value=st.session_state.get('sms_text', ""))
-    if st.button("Send SMS"):
-        st.success("Simulated SMS sent.")
-
-    st.subheader("Optional: Translate to Amharic")
-    st.write("Translation: ሕክምናዎን በሙሉ ይጨርሱ። እባኮትን ወዳጆችዎን እንዲፈተሹ ያበረታቱ።")
+    if st.button("Screen for TB"):
+        symptom_score = sum([cough, weight_loss, night_sweats, fever_tb, contact_tb])
+        if symptom_score >= 3 or (cough and weight_loss):
+            st.warning("⚠️ **High suspicion of TB** – Refer for sputum test, X-ray, or GeneXpert.")
+        elif symptom_score >= 1:
+            st.info("🩺 **Possible TB symptoms present** – Monitor and reassess if symptoms persist.")
+        else:
+            st.success("✅ Low suspicion of TB – No immediate action required.")
 
 # === Model Summary Page ===
 elif page == "Model Summary":
-    st.header("Model Summary")
-    st.markdown(f"""
-    ### Clinical Confidence / Uncertainty Score
-    - Current confidence: {st.session_state.get('confidence_score', 'N/A')}%
+    st.subheader("🧠 Model Summary")
+    st.markdown("This page will summarize the logic and accuracy of the syndromic models used.")
 
-    ### Model Insights
-    - Considers: Symptom type, duration, discharge appearance, occupation risk
-    - Diagnosis logic updated based on WHO syndromic case definitions and AI refinement
+# === Patient Demographics Page ===
+elif page == "Patient Demographics":
+    st.subheader("👥 Patient Demographics")
+    st.markdown("View or analyze anonymized demographic trends (future implementation).")
 
-    ### Future Enhancements
-    - Add lab confirmation module
-    - Link with Elomi DB for real-time tracking
-    """)
+# === Treatment and SMS Page ===
+elif page == "Treatment & SMS":
+    st.subheader("💊 Treatment Recommendation & SMS Generator")
+    st.markdown("Auto-generate treatment and SMS for referral or partner notification (future implementation).")
 
