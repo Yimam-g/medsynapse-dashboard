@@ -1,0 +1,10 @@
+
+# Ignore system files
+.DS_Store
+*.pyc
+__pycache__/
+
+# Ignore hidden junk
+cd
+git
+
