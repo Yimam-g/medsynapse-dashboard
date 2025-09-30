@@ -1,5 +1,5 @@
 # app.py
-# MedSynapse — Professional STI Dashboard with AI + WHO Syndromic Support
+# SynDx — Professional STI Dashboard with AI + WHO Syndromic Support
 
 import os
 import re
@@ -13,7 +13,7 @@ from openai import OpenAI
 # Streamlit Page Config
 # -----------------------
 st.set_page_config(
-    page_title="MedSynapse – STI Dashboard",
+    page_title="SynDx – STI Dashboard",
     page_icon="🧬",
     layout="wide"
 )
@@ -72,21 +72,23 @@ def triage_badge(level: str):
     return f"<div style='{style.get(level,'')}'>{colors.get(level,'')}</div>"
 
 # -----------------------
-# WHO Rule-based (Expanded, aligned with 2016 WHO Guidelines, strict hierarchy)
+# WHO Rule-based (Expanded, aligned with 2016 WHO Guidelines)
 # -----------------------
 def who_sti_diagnosis(sex, pregnant, symptoms):
     """
-    Returns WHO syndromic diagnosis, possible etiologies, treatment, and labs
-    Strict hierarchy is applied to avoid misclassification:
-      - PID > Vaginal discharge
-      - Epididymo-orchitis > Urethral discharge
-      - Inguinal bubo > Genital ulcer disease
+    Returns WHO syndromic diagnosis, possible etiologies, treatment, and labs.
+    Hierarchy ensures higher-priority syndromes (PID, Epididymo-orchitis, Inguinal bubo)
+    override less severe conditions.
     """
     s = set(symptoms)
 
     # --- FEMALE hierarchy ---
-    # PID has priority over VDS
-    if sex == "Female" and "Lower abdominal pain" in s:
+    # PID: prioritize if fever + pelvic pain/discharge/dyspareunia
+    if sex == "Female" and (
+        "Lower abdominal pain" in s
+        or "Dyspareunia" in s
+        or ("Fever" in s and "Vaginal discharge" in s)
+    ):
         return {
             "probable": "Pelvic Inflammatory Disease (PID)",
             "possible": "GC/CT, anaerobes",
@@ -94,7 +96,11 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
             "labs": "Pregnancy test; pelvic exam; HIV & syphilis testing"
         }
 
-    if sex == "Female" and "Vaginal discharge" in s:
+    # Vaginal discharge (default for women if discharge symptoms present)
+    if sex == "Female" and (
+        "Vaginal discharge" in s
+        or "Itching/burning" in s
+    ):
         return {
             "probable": "Vaginal discharge syndrome",
             "possible": "GC/CT, Trichomonas, BV",
@@ -103,8 +109,11 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
         }
 
     # --- MALE hierarchy ---
-    # Epididymo-orchitis has priority over urethral discharge
-    if sex == "Male" and "Testicular/scrotal pain/swelling" in s:
+    # Epididymo-orchitis: prioritize if fever + dysuria or testicular pain
+    if sex == "Male" and (
+        "Testicular/scrotal pain/swelling" in s
+        or ("Fever" in s and "Dysuria (painful urination)" in s)
+    ):
         return {
             "probable": "Epididymo-orchitis",
             "possible": "GC/CT, enteric organisms",
@@ -112,7 +121,10 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
             "labs": "Urinalysis; NAAT for GC/CT; ultrasound if torsion suspected"
         }
 
-    if sex == "Male" and ("Urethral discharge" in s or "Dysuria (painful urination)" in s):
+    # Urethral discharge
+    if sex == "Male" and (
+        "Urethral discharge" in s or "Dysuria (painful urination)" in s
+    ):
         return {
             "probable": "Urethral discharge syndrome",
             "possible": "Gonorrhea, Chlamydia",
@@ -121,7 +133,7 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
         }
 
     # --- BOTH SEXES ---
-    # Inguinal bubo has priority over GUD
+    # Inguinal bubo
     if "Inguinal swelling/tenderness" in s:
         return {
             "probable": "Inguinal bubo syndrome",
@@ -130,6 +142,7 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
             "labs": "Ultrasound if abscess; HIV & syphilis testing"
         }
 
+    # Genital ulcers
     if "Genital ulcer(s)" in s:
         return {
             "probable": "Genital ulcer disease",
@@ -138,7 +151,7 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
             "labs": "RPR/VDRL; HIV testing; HSV PCR if available"
         }
 
-    # --- Default catch ---
+    # --- Default fallback ---
     return {
         "probable": "No clear WHO-defined syndrome",
         "possible": "Consider alternative causes",
@@ -146,8 +159,9 @@ def who_sti_diagnosis(sex, pregnant, symptoms):
         "labs": "Screen HIV/syphilis; NAAT if feasible"
     }
 
+
 # -----------------------
-# AI GPT-3.5
+# AI based diagnosis
 # -----------------------
 def run_gpt(symptoms, risks, temp_val, hr_val, sbp, dbp, sex, pregnant, hiv, pain, notes, age):
     client = OpenAI()  # uses API key from environment
@@ -187,7 +201,7 @@ def run_gpt(symptoms, risks, temp_val, hr_val, sbp, dbp, sex, pregnant, hiv, pai
 # Layout with Top Tabs
 # -----------------------
 tabs = st.tabs([
-    "About MedSynapse",
+    "About SynDx",
     "Diagnosis",
     "Case History",
     "Export",
@@ -201,22 +215,21 @@ tabs = st.tabs([
 with tabs[0]:
     # Logo + Title
     st.image("assets/logo.png", width=140)
-    st.markdown("<h2 style='margin-bottom:0;'>MedSynapse</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='margin-bottom:0;'>SynDx</h2>", unsafe_allow_html=True)
     st.markdown("<p style='font-size:18px;color:gray;'>AI-Powered Clinical Dashboard for Syndromic STI Care</p>", unsafe_allow_html=True)
 
     st.markdown("---")
 
     st.markdown("""
     ### 🌍 Introduction  
-    **MedSynapse** is a next-generation digital health solution designed to strengthen clinical decision-making in the management of sexually transmitted infections (STIs).  
+    **SynDx** is a next-generation digital health solution designed to strengthen clinical decision-making in the management of sexually transmitted infections (STIs).  
     The tool was created in response to the persistent global health challenge posed by STIs, particularly in **low- and middle-income countries (LMICs)** where diagnostic laboratory infrastructure remains limited and syndromic management is the primary standard of care.  
-
-    By integrating **World Health Organization (WHO) syndromic guidelines** with **artificial intelligence (AI) reasoning**, MedSynapse provides clinicians with **real-time, evidence-based recommendations** that enhance accuracy, consistency, and patient outcomes.
+    By integrating **World Health Organization (WHO) syndromic guidelines** with **artificial intelligence (AI) reasoning**, SynDx provides clinicians with **real-time, evidence-based recommendations** that enhance accuracy, consistency, and patient outcomes.
     """)
 
     st.markdown("---")
     st.markdown("""
-    ### 🔑 Why MedSynapse Matters  
+    ### 🔑 Why SynDx Matters  
     - **Bridging the Gap:** Translates WHO syndromic guidelines into digital workflows, reducing variability in clinical practice.  
     - **Supporting Clinicians:** Offers decision support where access to specialists or laboratory confirmation is limited.  
     - **Enhancing Surveillance:** Captures structured case data that can feed into national health information systems.  
@@ -246,7 +259,7 @@ with tabs[0]:
     st.markdown("---")
     st.markdown("""
     ### 🚀 Vision and Impact  
-    MedSynapse is more than just a clinical tool—it is an **innovation platform**.  
+    SynDx is more than just a clinical tool—it is an **innovation platform**.  
     - For clinicians, it ensures **consistent, guideline-based care**.  
     - For patients, it improves **communication and empowerment**.  
     - For researchers and policymakers, it generates **structured, high-quality data** that supports decision-making and future funding proposals.  
@@ -257,9 +270,9 @@ with tabs[0]:
     st.markdown("---")
     st.markdown("""
     <div style='text-align:center;color:gray;'>
-    MedSynapse © 2025 | Elomi Health Research & Training LLC | Incollaboartion with Ethiopian Public Health Institute | Version 2.0 <br>
+    SynDx © 2025 | Ethiopian Public Health Institute | Incollaboartion with Elomi Health Research & Training LLC | Version 2.0 <br>
     📧 Contact: contact@lomiconsulting.com | 🌐 www.elomiconsulting.com <br>
-    ⚠️ Disclaimer: MedSynapse supports—but does not replace—professional clinical evaluation.
+    ⚠️ Disclaimer: Incollaboartion with  supports—but does not replace—professional clinical evaluation.
     </div>
     """, unsafe_allow_html=True)
     
@@ -369,7 +382,7 @@ with tabs[1]:
         # --- Transparency Note ---
         with st.expander("📝 Methodology Note: WHO + AI with Commentary (click to expand)", expanded=False):
             st.markdown("""
-            **Purpose.** MedSynapse integrates WHO 2016 **syndromic management** with AI reasoning.  
+            **Purpose.** Incollaboartion with integrates WHO 2016 **syndromic management** with AI reasoning.  
             This note explains how WHO and AI outputs are displayed and interpreted.
 
             ---
@@ -472,8 +485,10 @@ with tabs[5]:
     st.subheader("📚 Clinical Guidelines – WHO 2016 STI Syndromic Management")
 
     st.markdown("""
-    This section provides a practical reference to the **WHO 2016 STI syndromic management guidelines**.  
-    These algorithms are designed for **frontline clinicians** in resource-limited settings where laboratory facilities are minimal.  
+    This section provides a practical reference to the **WHO 2016 STI syndromic management** approach and companion
+    treatment guidance. These algorithms are designed for **frontline clinicians** in resource-limited settings where
+    laboratory facilities may be minimal. The content below is a concise field summary; always adapt to **local
+    epidemiology, drug resistance patterns, and national guidelines**.
     """)
 
     # Urethral Discharge (Male)
@@ -484,7 +499,7 @@ with tabs[5]:
     - **Ceftriaxone 500 mg IM once**  
     - **Doxycycline 100 mg PO bid x7 days**  
     **Laboratory (if available):** NAAT for GC/CT; HIV & syphilis testing  
-    **Notes:** Counsel patient and partners, reinforce condom use, partner notification.  
+    **Notes:** Counsel patient and partners; reinforce condom use; partner notification.
     """)
 
     st.markdown("---")
@@ -497,8 +512,8 @@ with tabs[5]:
     - **Ceftriaxone 500 mg IM once**  
     - **Doxycycline 100 mg PO bid x7 days**  
     - **Metronidazole 500 mg PO bid x7 days**  
-    **Laboratory (if available):** Speculum exam; NAAT for GC/CT; Wet mount for Trichomonas; HIV/syphilis testing  
-    **Notes:** Consider pregnancy status when prescribing doxycycline.  
+    **Laboratory (if available):** Speculum exam; NAAT for GC/CT; wet mount for Trichomonas; HIV/syphilis testing  
+    **Notes:** If **pregnant**, avoid doxycycline—use pregnancy-safe alternatives per national guidance.
     """)
 
     st.markdown("---")
@@ -512,7 +527,7 @@ with tabs[5]:
     - **Acyclovir 400 mg PO tid x7–10 days** (HSV)  
     - **Add Azithromycin 1 g PO once** if chancroid suspected  
     **Laboratory (if available):** RPR/VDRL; HIV testing; HSV PCR if available  
-    **Notes:** Test and treat partners; always counsel for HIV risk.  
+    **Notes:** Test and treat partners; counsel for HIV risk and prevention.
     """)
 
     st.markdown("---")
@@ -526,7 +541,7 @@ with tabs[5]:
     - **Doxycycline 100 mg PO bid x14 days**  
     - **Metronidazole 500 mg PO bid x14 days**  
     **Laboratory (if available):** Pregnancy test; HIV/syphilis testing; pelvic exam  
-    **Notes:** High risk of infertility if untreated – treat aggressively.  
+    **Notes:** High risk of infertility/ectopic pregnancy if untreated—**treat urgently** and ensure follow-up.
     """)
 
     st.markdown("---")
@@ -536,10 +551,10 @@ with tabs[5]:
     st.markdown("""
     **Probable causes:** *Lymphogranuloma venereum (LGV), chancroid*  
     **Recommended Treatment:**  
-    - **Doxycycline 100 mg PO bid x21 days**  
-    - **OR Azithromycin 1 g PO weekly x3 weeks**  
+    - **Doxycycline 100 mg PO bid x21 days**, **OR**  
+    - **Azithromycin 1 g PO weekly x3 weeks**  
     **Laboratory (if available):** Ultrasound if abscess suspected; HIV & syphilis testing  
-    **Notes:** Surgical drainage only if fluctuant.  
+    **Notes:** Surgical drainage only if fluctuant; continue syndromic therapy.
     """)
 
     st.markdown("---")
@@ -551,13 +566,38 @@ with tabs[5]:
     **Recommended Treatment:**  
     - **Ceftriaxone 500 mg IM once**  
     - **Doxycycline 100 mg PO bid x10–14 days**  
-    **Laboratory (if available):** Urinalysis; NAAT for GC/CT; Ultrasound if torsion suspected  
-    **Notes:** Urgent referral if torsion cannot be excluded.  
+    **Laboratory (if available):** Urinalysis; NAAT for GC/CT; ultrasound if torsion suspected  
+    **Notes:** **Urgent referral** if testicular torsion cannot be excluded.
     """)
 
     st.markdown("---")
 
-    st.info("⚠️ These guidelines are simplified summaries of WHO 2016 STI syndromic algorithms. Clinicians should adapt based on local epidemiology and drug resistance patterns.")
+    # Key Guidelines & Resources
+    st.markdown("### 📑 Key Guidelines & Resources")
+    st.markdown("""
+- **WHO – STI Syndromic Management (2016 treatment guidance set).** Concise, condition-specific recommendations that underpin this tab; especially relevant where diagnostics are limited.  
+  👉 https://www.who.int/teams/global-hiv-hepatitis-and-stis/programmes/sti-prevention-and-control/guidelines
+
+- **CDC – STI Treatment Guidelines (current).** Detailed, regularly updated regimens; helpful for nuance, special populations, and resistance considerations.  
+  👉 https://www.cdc.gov/std/treatment-guidelines/
+
+- **Ethiopia – National STI Management Guideline (latest edition).** National adaptations of WHO guidance including local antimicrobial choices and implementation notes.  
+  👉 **[ADD OFFICIAL LINK HERE]**  *(e.g., MoH/EPHI website or PDF)*
+
+- **WHO – HIV Testing Services & Partner Services.** Practical guidance for partner notification, linkage to care, and prevention.  
+  👉 https://www.who.int/teams/global-hiv-hepatitis-and-stis/hiv-testing-services
+
+- **UNAIDS / WHO – Key Populations & PrEP/PEP resources.** Integration points for prevention when counseling and follow-up are provided.  
+  👉 https://www.unaids.org/
+    """)
+
+    with st.expander("🔄 Future updates & publications"):
+        st.markdown("""
+        - This section will be expanded with **national protocols**, **drug-resistance alerts**, and **peer-reviewed publications** relevant to SynDx.  
+        - We will also add **one-click links** to local antimicrobial stewardship bulletins and **context-specific dosing** (e.g., pregnancy, pediatrics, renal dosing) where available.
+        """)
+
+    st.info("⚠️ These are simplified field summaries. Always verify against **national guidance** and consider **local resistance patterns** before prescribing.")
 
 # -----------------------
 # Training & Education Tab
@@ -612,7 +652,7 @@ with tabs[6]:
 
     # Goal Statement
     st.markdown("""
-    ✅ **Goal:** Position MedSynapse as not only a diagnostic decision support tool, 
+    ✅ **Goal:** Position SynDx as not only a diagnostic decision support tool, 
     but also a **capacity-building ecosystem** that empowers clinicians with knowledge, skills, 
     and tools to deliver high-quality STI care in any setting.
     """)
