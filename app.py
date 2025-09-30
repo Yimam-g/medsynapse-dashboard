@@ -271,7 +271,7 @@ with tabs[0]:
     st.markdown("""
     <div style='text-align:center;color:gray;'>
     SynDx © 2025 | Ethiopian Public Health Institute | Incollaboartion with Elomi Health Research & Training LLC | Version 2.0 <br>
-    📧 Contact: contact@lomiconsulting.com | 🌐 www.elomiconsulting.com <br>
+    📧 Contact: info@ephi.giv.et | 🌐 www.ephi.gov.et <br>
     ⚠️ Disclaimer: Incollaboartion with  supports—but does not replace—professional clinical evaluation.
     </div>
     """, unsafe_allow_html=True)
@@ -582,8 +582,7 @@ with tabs[5]:
   👉 https://www.cdc.gov/std/treatment-guidelines/
 
 - **Ethiopia – National STI Management Guideline (latest edition).** National adaptations of WHO guidance including local antimicrobial choices and implementation notes.  
-  👉 **[ADD OFFICIAL LINK HERE]**  *(e.g., MoH/EPHI website or PDF)*
-
+ 
 - **WHO – HIV Testing Services & Partner Services.** Practical guidance for partner notification, linkage to care, and prevention.  
   👉 https://www.who.int/teams/global-hiv-hepatitis-and-stis/hiv-testing-services
 
