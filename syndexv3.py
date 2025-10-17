@@ -454,7 +454,7 @@ if not st.session_state["authenticated"]:
         if LOGO_EXISTS:
             st.image(LOGO_PATH, width=200)
         else:
-            st.markdown("<h1 style='text-align: center;'>🧬</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center;'> </h1>", unsafe_allow_html=True)
     
     with col2:
         with st.form("login_form"):
@@ -499,7 +499,7 @@ with st.sidebar:
     if LOGO_EXISTS:
         st.image(LOGO_PATH, width=80)
     else:
-        st.markdown("<h1>🧬</h1>", unsafe_allow_html=True)
+        st.markdown("<h1> </h1>", unsafe_allow_html=True)
     
     st.header("Quick Actions")
     
@@ -548,7 +548,7 @@ with tabs[0]:
     if LOGO_EXISTS:
         st.image(LOGO_PATH, width=140)
     else:
-        st.markdown("<h1 style='text-align: center;'>🧬</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'> </h1>", unsafe_allow_html=True)
     
     st.markdown("<h2 style='margin-bottom:0;'>SynDx - Syndromic Diagnosis & Surveillance System</h2>", unsafe_allow_html=True)
     st.markdown("<p style='font-size:18px;color:gray;'>AI-Powered Clinical Dashboard for Comprehensive Infectious Disease Management</p>", unsafe_allow_html=True)
